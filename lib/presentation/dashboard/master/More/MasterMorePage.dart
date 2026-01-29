@@ -16,7 +16,7 @@ class MasterMorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
-    final user = auth.userData; // Logged-in user details
+// Logged-in user details
 
     return Scaffold(
       body: ListView(
