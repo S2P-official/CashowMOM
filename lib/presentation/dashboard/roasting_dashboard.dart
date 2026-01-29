@@ -361,6 +361,8 @@ class _TasksPageState extends State<TasksPage> {
   late int tenantId;
   late int employeeId;
 
+  static const String baseUrl = "http://192.168.29.215:8080";
+
   final List<String> cuttingLineOptions = [
     "Cutting Line AB",
     "Cutting Line CD",
@@ -377,37 +379,28 @@ class _TasksPageState extends State<TasksPage> {
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
       final auth = Provider.of<AuthProvider>(context, listen: false);
       tenantId = auth.tenantId ?? 1;
       employeeId = auth.employeeId ?? 123;
-
       fetchReports();
     });
   }
 
   Future<void> fetchReports() async {
     final apiUrl =
-        "http://192.168.29.215:8080/api/calibration-reports/tenant/$tenantId/pending";
+        "$baseUrl/api/calibration-reports/tenant/$tenantId/pending";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
-
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
         data.sort((a, b) {
-          final ad = a["date"] == null
-              ? DateTime(1970)
-              : DateTime.tryParse(a["date"]) ?? DateTime(1970);
-          final bd = b["date"] == null
-              ? DateTime(1970)
-              : DateTime.tryParse(b["date"]) ?? DateTime(1970);
+          final ad = DateTime.tryParse(a["date"] ?? "") ?? DateTime(1970);
+          final bd = DateTime.tryParse(b["date"] ?? "") ?? DateTime(1970);
           return bd.compareTo(ad);
         });
 
@@ -418,101 +411,76 @@ class _TasksPageState extends State<TasksPage> {
       } else {
         setState(() => isLoading = false);
       }
-    } catch (e) {
+    } catch (_) {
       setState(() => isLoading = false);
     }
   }
 
   // ---------------------------------------------------------------
-  // POPUP — Cooking readonly + Roasting editable + Cutting Line dropdown
+  // UPDATE DIALOG
   // ---------------------------------------------------------------
   void _openUpdateDialog(Map<String, dynamic> report) {
-    // Readonly cooking fields
-    TextEditingController cookingTimeCtrl =
+    final cookingTimeCtrl =
         TextEditingController(text: report["cookingTime"] ?? "");
-
-    TextEditingController dryRcnCtrl =
+    final dryRcnCtrl =
         TextEditingController(text: report["dryRcnMoisture"]?.toString() ?? "");
 
-    // Editable roasting fields
-    TextEditingController roasterNameCtrl =
+    final roasterNameCtrl =
         TextEditingController(text: report["roasterName"] ?? "");
-
-    TextEditingController tempVnCtrl =
+    final tempVnCtrl =
         TextEditingController(text: report["tempForVnMachine"] ?? "");
-
-    TextEditingController roastDurationCtrl =
+    final roastDurationCtrl =
         TextEditingController(text: report["roastingDuration"] ?? "");
-
-    TextEditingController soackingMoistureCtrl =
+    final soackingCtrl =
         TextEditingController(text: report["soackingMoisture"] ?? "");
-
-    TextEditingController moistureAfterRoastCtrl =
+    final moistureAfterCtrl =
         TextEditingController(text: report["moistureAfterRoasting"] ?? "");
-
-    TextEditingController totalRoastedCtrl =
+    final totalRoastedCtrl =
         TextEditingController(text: report["totalRoasted"] ?? "");
 
-    // Cutting Line dropdown value
-    String selectedCuttingLine = report["cuttingLine"] ?? cuttingLineOptions[0];
+    String selectedCuttingLine =
+        cuttingLineOptions.contains(report["cuttingLine"])
+            ? report["cuttingLine"]
+            : cuttingLineOptions.first;
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (_) {
         return AlertDialog(
           title: const Text("Update Roasting Details"),
           content: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _readOnlyField("Date", report["date"]),
                 _readOnlyField("Lot Mark", report["lotMark"]),
                 _readOnlyField("Origin", report["origin"]),
-                _readOnlyField("Per Bag Weight", report["perBagWeight"]),
-                _readOnlyField("Size Range", report["sizeRange"]),
-                _readOnlyField("No of Bags", report["noOfBags"]),
-                _readOnlyField("Production Qty", report["productionQty"]),
-                _readOnlyField("Total Production Mts",
-                    report["totalProductionMts"]),
-                _readOnlyField("Percentage", report["percentage"]),
-                _readOnlyField("Count Per Kg", report["countPerKg"]),
                 _readOnlyField("Status", report["status"]),
-               
-                const SizedBox(height: 10),
+
+                const SizedBox(height: 12),
+
+                readOnlyTextBox("Cooking Time", cookingTimeCtrl),
+                readOnlyTextBox("Dry RCN Moisture", dryRcnCtrl),
 
                 textBox("Roaster Name", roasterNameCtrl),
-                textBox("Temp For VN Machine", tempVnCtrl),
+                numberBox("Temp For VN Machine", tempVnCtrl),
                 textBox("Roasting Duration", roastDurationCtrl),
-                textBox("Soacking Moisture", soackingMoistureCtrl),
-                textBox("Moisture After Roasting", moistureAfterRoastCtrl),
-                textBox("Cooking Time",cookingTimeCtrl),
-                textBox("Dry RCN Moisture", dryRcnCtrl),
-                textBox("Total Roasted", totalRoastedCtrl),
+                numberBox("Soacking Moisture", soackingCtrl),
+                numberBox("Moisture After Roasting", moistureAfterCtrl),
+                numberBox("Total Roasted", totalRoastedCtrl),
 
-                const SizedBox(height: 15),
-                const Text("Cutting Line",
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
 
                 DropdownButtonFormField<String>(
                   value: selectedCuttingLine,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: "Select Cutting Line",
+                    labelText: "Cutting Line",
                   ),
                   items: cuttingLineOptions
                       .map((e) =>
                           DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
-                  onChanged: (v) {
-                    selectedCuttingLine = v!;
-                  },
+                  onChanged: (v) => selectedCuttingLine = v!,
                 ),
-
-                const SizedBox(height: 20),
-               
-               
               ],
             ),
           ),
@@ -530,8 +498,8 @@ class _TasksPageState extends State<TasksPage> {
                   roasterNameCtrl.text,
                   tempVnCtrl.text,
                   roastDurationCtrl.text,
-                  soackingMoistureCtrl.text,
-                  moistureAfterRoastCtrl.text,
+                  soackingCtrl.text,
+                  moistureAfterCtrl.text,
                   totalRoastedCtrl.text,
                   selectedCuttingLine,
                 );
@@ -545,11 +513,92 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  // ------------------- UI COMPONENTS -------------------
+  // ---------------------------------------------------------------
+  // API CALL
+  // ---------------------------------------------------------------
+  Future<void> submitRoastingReport(
+    Map<String, dynamic> report,
+    String cookingTime,
+    String dryMoisture,
+    String roaster,
+    String tempVn,
+    String roastDuration,
+    String soackingMoisture,
+    String moistureAfterRoast,
+    String totalRoasted,
+    String cuttingLine,
+  ) async {
+    final postUrl =
+        Uri.parse("$baseUrl/api/roasting-reports/tenant/$tenantId/employee/$employeeId");
+    final patchUrl =
+        Uri.parse("$baseUrl/api/calibration-reports/${report["id"]}");
 
+    final postPayload = {
+      "lotMark": report["lotMark"],
+      "origin": report["origin"],
+      "sizeRange": report["sizeRange"],
+      "noOfBags": report["noOfBags"],
+      "productionQty": report["productionQty"],
+      "percentage": report["percentage"],
+      "countPerKg": report["countPerKg"],
+      "totalProductionMts": report["totalProductionMts"],
+
+      "cookingTime": cookingTime,
+      "dryRcnMoisture": double.tryParse(dryMoisture),
+
+      "roasterName": roaster,
+      "tempForVnMachine": double.tryParse(tempVn),
+      "roastingDuration": roastDuration,
+      "soackingMoisture": double.tryParse(soackingMoisture),
+      "moistureAfterRoasting": double.tryParse(moistureAfterRoast),
+      "totalRoasted": double.tryParse(totalRoasted),
+
+      "cuttingLine": cuttingLine,
+      "tenant": {"id": tenantId},
+      "employee": {"id": employeeId},
+    };
+
+    try {
+      final postRes = await http.post(
+        postUrl,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(postPayload),
+      );
+
+      if (postRes.statusCode == 200 || postRes.statusCode == 201) {
+        final patchRes = await http.patch(
+          patchUrl,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"status": "Completed"}),
+        );
+
+        if (patchRes.statusCode == 200) {
+          setState(() {
+            report["status"] = "Completed";
+            report["cuttingLine"] = cuttingLine;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Roasting Report Submitted")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Status update failed")),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // UI HELPERS
+  // ---------------------------------------------------------------
   Widget _readOnlyField(String label, dynamic value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -570,12 +619,28 @@ class _TasksPageState extends State<TasksPage> {
 
   Widget textBox(String label, TextEditingController c) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: c,
+        decoration: const InputDecoration(
+       
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget numberBox(String label, TextEditingController c) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: c,
+        keyboardType: TextInputType.number,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(),
+          border: const OutlineInputBorder(),
+          isDense: true,
         ),
       ),
     );
@@ -583,104 +648,21 @@ class _TasksPageState extends State<TasksPage> {
 
   Widget readOnlyTextBox(String label, TextEditingController c) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: c,
         readOnly: true,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(),
+          border: const OutlineInputBorder(),
+          isDense: true,
         ),
       ),
     );
   }
 
   // ---------------------------------------------------------------
-  // API CALL — POST roasting + PATCH cooking status
-  // ---------------------------------------------------------------
-  Future<void> submitRoastingReport(
-    Map<String, dynamic> report,
-    String cookingTime,
-    String dryMoisture,
-    String roaster,
-    String tempVn,
-    String roastDuration,
-    String soackingMoisture,
-    String moistureAfterRoast,
-    String totalRoasted,
-    String cuttingLine,
-  ) async {
-    final postUrl = Uri.parse(
-      "http://192.168.29.215:8080/api/roasting-reports/tenant/$tenantId/employee/$employeeId",
-    );
-
-    final patchUrl = Uri.parse(
-      "http://192.168.29.215:8080/api/calibration-reports/${report["id"]}",
-    );
-
-    final postPayload = {
-      "lotMark": report["lotMark"],
-      "origin": report["origin"],
-      "sizeRange": report["sizeRange"],
-      "noOfBags": report["noOfBags"],
-      "productionQty": report["productionQty"],
-      "percentage": report["percentage"],
-      "countPerKg": report["countPerKg"],
-      "totalProductionMts": report["totalProductionMts"],
-
-      // Cooking
-      "cookingTime": cookingTime,
-      "dryRcnMoisture": double.tryParse(dryMoisture),
-
-      // Roasting
-      "roasterName": roaster,
-      "tempForVnMachine": tempVn,
-      "roastingDuration": roastDuration,
-      "soackingMoisture": soackingMoisture,
-      "moistureAfterRoasting": moistureAfterRoast,
-      "totalRoasted": totalRoasted,
-
-      // NEW
-      "cuttingLine": cuttingLine,
-
-      "tenant": {"id": tenantId},
-      "employee": {"id": employeeId},
-    };
-
-    try {
-      final postResponse = await http.post(
-        postUrl,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(postPayload),
-      );
-
-      if (postResponse.statusCode == 200 ||
-          postResponse.statusCode == 201) {
-        final patchResponse = await http.patch(
-          patchUrl,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"status": "Completed"}),
-        );
-
-        if (patchResponse.statusCode == 200) {
-          setState(() {
-            report["status"] = "Completed";
-            report["cuttingLine"] = cuttingLine;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Roasting Report Submitted!")),
-          );
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
-    }
-  }
-
-  // ---------------------------------------------------------------
-  // UI LIST (Cutting Line hidden as per Option C)
+  // LIST UI
   // ---------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -689,60 +671,39 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     if (reports.isEmpty) {
-      return const Center(child: Text("No reports found."));
+      return const Center(child: Text("No reports found"));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: reports.length,
-      itemBuilder: (context, index) {
-        final r = reports[index];
-
+      itemBuilder: (_, i) {
+        final r = reports[i];
         return Card(
           elevation: 4,
-          margin: const EdgeInsets.symmetric(vertical: 12),
+          margin: const EdgeInsets.symmetric(vertical: 10),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Lot: ${r["lotMark"]}",
-                      style:
-                          const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      r["date"] ?? "-",
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
+                Text(
+                  "Lot: ${r["lotMark"]}",
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-
-                const SizedBox(height: 10),
-
                 Text("Origin: ${r["origin"]}"),
-                Text("Per Bag Weight: ${r["perBagWeight"]}"),
-                Text("Size: ${r["sizeRange"]}"),
-                Text("Bags: ${r["noOfBags"]}"),
-                Text("Production: ${r["productionQty"]}"),
-                Text("Total Mts: ${r["totalProductionMts"]}"),
-                Text("Percentage: ${r["percentage"]}"),
-                Text("Count Per Kg: ${r["countPerKg"]}"),
-                 Text("Cooking Time: ${r["cookingTime"]}"),
-                 Text("Dry RCN Moisture: ${r["dryRcnMoisture"]}"),
-
-
-                const SizedBox(height: 14),
-
+                Text("Cooking Time: ${r["cookingTime"]}"),
+                Text("Dry RCN Moisture: ${r["dryRcnMoisture"]}"),
+                const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: r["status"] == "Completed"
                       ? null
                       : () => _openUpdateDialog(r),
                   child: Text(
-                    r["status"] == "Completed" ? "Submitted" : "Update Task",
+                    r["status"] == "Completed"
+                        ? "Submitted"
+                        : "Update Task",
                   ),
                 ),
               ],
@@ -753,7 +714,6 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 }
-
 
 // ---------------- View Tasks Page ---------------- //
 
