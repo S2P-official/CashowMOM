@@ -381,7 +381,7 @@ class _TasksPageState extends State<TasksPage> {
   // ----------------------------------------------------------------------
   Future<void> fetchReports() async {
     final apiUrl =
-        "http://192.168.29.215:8080/api/shelling-reports/tenant/$tenantId/pending";
+        "http://10.175.206.207:8080/api/shelling-reports/tenant/$tenantId/pending";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));

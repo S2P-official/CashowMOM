@@ -229,7 +229,7 @@ class _RegisterTenantPageState extends State<RegisterTenantPage> {
     r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$',
   );
 
-  final String apiUrl = 'http://192.168.29.215:8080/api/tenants';
+  final String apiUrl = 'http://10.175.206.207:8080/api/tenants';
 
   Future<void> submitTenant() async {
     if (!_formKey.currentState!.validate()) return;
