@@ -2,14 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-<<<<<<< HEAD
-  final String baseUrl = "http://10.175.206.207:8080/api";
-=======
-  // -------------------------------
-  // BASE URL (single source)
-  // -------------------------------
+
   final String baseUrl = "http://192.168.29.215:8080/api";
->>>>>>> 054df19e4829d31600788690e370d4b2afc8067b
 
   // -------------------------------
   // COMMON HEADERS
@@ -100,13 +94,13 @@ class ApiService {
 
         return {
           "date": task["date"].split("T")[0],
-          "lotMark": "${task["lot"]}-${task["mark"]}",
+          "lotMark": task["lot"],
           "origin": task["origin"],
-          "perBagWeight": 50.0,
+          "perBagWeight": task["perBagWeight"],
           "sizeRange": task["size"],
           "noOfBags": (task["totalBags"] as int).toDouble(),
           "productionQty": qty,
-          "totalProductionMts": qty / 2,
+          "totalProductionMts": qty ,
           "percentage": task["percentage"],
           "countPerKg": task["countPerKg"],
           "tenant": {"id": tenantId},

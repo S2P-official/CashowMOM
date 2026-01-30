@@ -8,6 +8,7 @@ import 'package:factory_app/presentation/dashboard/master/Employee/ViewAttendanc
 import 'package:factory_app/presentation/login/login_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../state/auth_provider.dart';
 import '../activity/checkinScreenPage.dart';
@@ -99,19 +100,29 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> _pages = <Widget>[
+      // 0️⃣ Check-in
       CheckInPage(),
-      TasksPage(tenantId: widget.tenantId),
 
+      // 1️⃣ Update
       UpdateTasksPage(
         tasksList: tasksList,
-        onTasksUpdated: (newTasks) => setState(() => tasksList = newTasks),
+        onTasksUpdated: (newTasks) =>
+            setState(() => tasksList = newTasks),
       ),
+
+      // 2️⃣ View
       ViewTasksPage(
         tasks: tasksList,
         tenantId: widget.tenantId,
         employeeId: widget.employeeId,
-        onTasksUpdated: (updated) => setState(() => tasksList = updated),
+        onTasksUpdated: (updated) =>
+            setState(() => tasksList = updated),
       ),
+
+      // 3️⃣ Status
+      TasksPage(tenantId: widget.tenantId, employeeId: widget.employeeId,),
+
+      // 4️⃣ More
       MorePage(),
     ];
 
@@ -123,9 +134,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
       body: _pages[_selectedIndex],
 
-      // ---------------------------------------------------------------
-      // FIXED BOTTOM NAVIGATION BAR (VISIBLE + CLEAR + NO OVERLAY)
-      // ---------------------------------------------------------------
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         elevation: 12,
@@ -135,11 +143,26 @@ class _DashboardPageState extends State<DashboardPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.login), label: 'Check-in'),
-          BottomNavigationBarItem(icon: Icon(Icons.task), label: 'Tasks'),
-          BottomNavigationBarItem(icon: Icon(Icons.update), label: 'Update'),
-          BottomNavigationBarItem(icon: Icon(Icons.view_list), label: 'View'),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.login),
+            label: 'Check-in',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.update),
+            label: 'Update',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.view_list),
+            label: 'View',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.task_alt),
+            label: 'Status',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.more_horiz),
+            label: 'More',
+          ),
         ],
       ),
     );
@@ -347,18 +370,29 @@ class CheckInPage extends StatelessWidget {
 
 // ---------------- Tasks Page (Fetch + PDF Download) ---------------- //
 
+
+
+
+
 class TasksPage extends StatefulWidget {
   final int tenantId;
+  final int employeeId;
 
-  const TasksPage({super.key, required this.tenantId});
+  const TasksPage({
+    super.key,
+    required this.tenantId,
+    required this.employeeId,
+  });
 
   @override
   State<TasksPage> createState() => _TasksPageState();
 }
 
 class _TasksPageState extends State<TasksPage> {
-  List<dynamic> reports = [];
+  List<dynamic> allReports = [];
+  List<dynamic> filteredReports = [];
   bool isLoading = true;
+  DateTime? selectedDate;
 
   @override
   void initState() {
@@ -366,37 +400,155 @@ class _TasksPageState extends State<TasksPage> {
     fetchReports();
   }
 
+  // --------------------------------------------------
+  // FETCH REPORTS (TENANT + EMPLOYEE)
+  // --------------------------------------------------
   Future<void> fetchReports() async {
-    final String apiUrl =
-        "http://192.168.29.215:8080/api/calibration-reports/tenant/${widget.tenantId}";
+    setState(() => isLoading = true);
+
+    final url =
+        "http://192.168.29.215:8080/api/calibration-reports?tenantId=${widget.tenantId}&employeeId=${widget.employeeId}";
 
     try {
-      final response = await http.get(Uri.parse(apiUrl));
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
-        data.sort(
-          (a, b) =>
-              DateTime.parse(b["date"]).compareTo(DateTime.parse(a["date"])),
-        );
+        // Sort by date descending
+        data.sort((a, b) => DateTime.parse(b['date'])
+            .compareTo(DateTime.parse(a['date'])));
 
         setState(() {
-          reports = data;
+          allReports = data;
+          applyDateFilter();
           isLoading = false;
         });
       } else {
         setState(() => isLoading = false);
       }
-    } catch (e) {
+    } catch (_) {
       setState(() => isLoading = false);
     }
   }
 
+  // --------------------------------------------------
+  // DATE FILTER ONLY
+  // --------------------------------------------------
+  void applyDateFilter() {
+    if (selectedDate == null) {
+      filteredReports = allReports;
+    } else {
+      filteredReports = allReports.where((r) {
+        final d = DateTime.parse(r['date']);
+        return d.year == selectedDate!.year &&
+            d.month == selectedDate!.month &&
+            d.day == selectedDate!.day;
+      }).toList();
+    }
+    setState(() {});
+  }
+
+  String formatDate(String? d) =>
+      d == null ? "-" : DateFormat('dd-MM-yyyy').format(DateTime.parse(d));
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    // your UI code
-    return Container();
+    return Scaffold(
+      appBar: AppBar(title: const Text("Calibration Reports")),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // DATE FILTER BAR
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      const Text(
+                        "Filter by Date",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.date_range),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+
+                          if (picked != null) {
+                            selectedDate = picked;
+                            applyDateFilter();
+                          }
+                        },
+                      ),
+                      if (selectedDate != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            selectedDate = null;
+                            applyDateFilter();
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+
+                // TABLE
+                Expanded(
+                  child: filteredReports.isEmpty
+                      ? const Center(child: Text("No reports found"))
+                      : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SingleChildScrollView(
+                            child: DataTable(
+                              headingRowColor:
+                                  MaterialStateProperty.all(
+                                      Colors.blue.shade50),
+                              columns: const [
+                                DataColumn(label: Text("ID")),
+                                DataColumn(label: Text("Date")),
+                                DataColumn(label: Text("Lot Mark")),
+                                DataColumn(label: Text("Origin")),
+                                DataColumn(label: Text("Per Bag Weight")),
+                                DataColumn(label: Text("Size Range")),
+                                DataColumn(label: Text("No of Bags")),
+                                DataColumn(label: Text("Production Qty")),
+                                DataColumn(label: Text("Count/Kg")),
+                                DataColumn(label: Text("Employee")),
+                              ],
+                              rows: filteredReports.map((r) {
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text("${r['id'] ?? '-'}")),
+                                    DataCell(Text(formatDate(r['date']))),
+                                    DataCell(Text(r['lotMark'] ?? '-')),
+                                    DataCell(Text(r['origin'] ?? '-')),
+                                    DataCell(
+                                        Text("${r['perBagWeight'] ?? '-'}")),
+                                    DataCell(Text(r['sizeRange'] ?? '-')),
+                                    DataCell(Text("${r['noOfBags'] ?? '-'}")),
+                                    DataCell(
+                                        Text("${r['productionQty'] ?? '-'}")),
+                                    DataCell(Text("${r['countPerKg'] ?? '-'}")),
+                                    DataCell(Text(r['employeeName'] ?? '-')),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+    );
   }
 }
 
@@ -425,6 +577,7 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
   final TextEditingController productionQtyController = TextEditingController();
   final TextEditingController percentageController = TextEditingController();
   final TextEditingController countPerKgController = TextEditingController();
+  final TextEditingController perBagWeightController = TextEditingController(); // NEW
 
   String? selectedSize;
   DateTime selectedDate = DateTime.now();
@@ -455,14 +608,6 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
 
             const SizedBox(height: 16),
 
-            TextFormField(
-              controller: markController,
-              decoration: const InputDecoration(
-                labelText: "Mark",
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) => v!.isEmpty ? "Enter Mark" : null,
-            ),
 
             const SizedBox(height: 16),
 
@@ -480,14 +625,7 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
             DropdownButtonFormField<String>(
               value: selectedSize,
               items: [
-                "A+",
-                "A",
-                "B+",
-                "B",
-                "C+",
-                "C",
-                "D+",
-                "D",
+                "A+", "A", "B+", "B", "C+", "C", "D+", "D",
               ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
               onChanged: (v) => setState(() => selectedSize = v),
               decoration: const InputDecoration(
@@ -507,6 +645,18 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
               ),
               keyboardType: TextInputType.number,
               validator: (v) => v!.isEmpty ? "Enter total bags" : null,
+            ),
+
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: perBagWeightController, // NEW
+              decoration: const InputDecoration(
+                labelText: "Per Bag Weight",
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (v) => v!.isEmpty ? "Enter per bag weight" : null,
             ),
 
             const SizedBox(height: 16),
@@ -557,6 +707,7 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
                     "origin": originController.text,
                     "size": selectedSize,
                     "totalBags": int.parse(totalBagsController.text),
+                    "perBagWeight": double.parse(perBagWeightController.text), // NEW
                     "productionQty": double.parse(productionQtyController.text),
                     "percentage": double.parse(percentageController.text),
                     "countPerKg": double.parse(countPerKgController.text),
@@ -565,14 +716,15 @@ class _UpdateTasksPageState extends State<UpdateTasksPage> {
                   widget.tasksList.add(task);
                   widget.onTasksUpdated(widget.tasksList);
 
+                  // Clear fields
                   lotController.clear();
                   markController.clear();
                   originController.clear();
                   totalBagsController.clear();
+                  perBagWeightController.clear(); // NEW
                   productionQtyController.clear();
                   percentageController.clear();
                   countPerKgController.clear();
-
                   setState(() => selectedSize = null);
 
                   ScaffoldMessenger.of(
@@ -639,11 +791,11 @@ class _ViewTasksPageState extends State<ViewTasksPage> {
         "date": task["date"].split("T")[0],
         "lotMark": "${task["lot"]}-${task["mark"]}",
         "origin": task["origin"],
-        "perBagWeight": 50.0,
+        "perBagWeight": task["perBagWeight"],
         "sizeRange": task["size"],
         "noOfBags": (task["totalBags"] as int).toDouble(),
         "productionQty": qty,
-        "totalProductionMts": qty / 2,
+        "totalProductionMts": qty,
         "percentage": task["percentage"],
         "countPerKg": task["countPerKg"],
         "tenant": {"id": widget.tenantId},

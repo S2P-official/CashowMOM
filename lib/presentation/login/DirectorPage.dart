@@ -37,7 +37,7 @@ class _RegisterDirectorPageState extends State<RegisterDirectorPage> {
   );
 
   late final String apiUrl =
-      "http://10.175.206.207:8080/api/employees/tenant/${widget.tenantId}";
+      "http://192.168.29.215:8080/api/employees/tenant/${widget.tenantId}";
 
   Future<void> submitDirector() async {
     if (!_formKey.currentState!.validate()) return;
